@@ -33,10 +33,10 @@ export async function processer(
 		}
 
 		let cleanedText = ocrData.data.text
-			.replaceAll("\n", "")
 			.toLowerCase()
-			// biome-ignore lint/suspicious/noControlCharactersInRegex: Cut out non ASCII, this is incredibly unreliable
-			.replace(/^\x00-\x7F/g, ""); // Tesseract inserts its own newline characters
+			.replace(/\n/g, "")
+			.replace(/[^\x20-\x7E]/g, ""); // Matches everything NOT between Space (0x20) and Tilde (0x7E)
+
 		rule.triggerMetadata.allowList.forEach((word) => {
 			cleanedText = cleanedText.replaceAll(word, "");
 		});
