@@ -44,6 +44,10 @@ export async function handleMessage(message: Message) {
 	}
 
 	for (const image of imagesToCheck) {
-		await processer(message.member!, message, image);
+		try {
+			await processer(message.member!, message, image);
+		} catch (e) {
+			console.error(e);
+		}
 	}
 }
