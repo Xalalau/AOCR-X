@@ -1,9 +1,0 @@
-{
-    "DiscordToken": "Token for a discord bot",
-    "Workers": 5,
-    "ApplyToModerators": false,
-    "OnlyDelete": false,
-    "CheckEmojis": false,
-    "CheckReactions": true,
-    "CheckStickers": true
-}

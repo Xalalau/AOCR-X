@@ -1,10 +1,11 @@
 {
-    "cSpell.words": [
-        "AOCR",
-        "AUTOMOD",
-        "moderatable",
-        "tessdata",
-        "tesseract",
-        "traineddata"
-    ]
+	"cSpell.words": [
+		"AOCR",
+		"AUTOMOD",
+		"moderatable",
+		"tessdata",
+		"tesseract",
+		"traineddata"
+	],
+	"dotenv.enableAutocloaking": false
 }

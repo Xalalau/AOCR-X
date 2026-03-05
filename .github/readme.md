@@ -22,14 +22,14 @@
     - Moderate Members (To apply moderation actions to members)
 2. Add the bot to your server
 3. Clone this repository (`git clone https://github.com/SomeAspy/AOCR`)
-4. Set configs in `config/config.json` (copy `config.example.json` and rename the copy to `config.json`)
-    - `DiscordToken`: This will be your bots Discord Token.
-    - `Workers`: The amount of workers the bot will have for OCR. Each worker takes about 100mb RAM. (Default: `5`)
-    - `ApplyToModerators`: Whether to apply AOCR detection to admins and members with manage server. (Default: `false`)
-    - `OnlyDelete`: This will only delete messages instead of applying all automod rules. (Default: `false`)
-    - `CheckEmojis`: Check emojis with OCR. This requires processing **EVERY** message with regex. (Default: `false`)
-    - `CheckReactions`: Check reactions with OCR. (Default: `true`)
-    - `CheckStickers`: Check stickers with OCR. (Default: `true`)
+4. Set configs in `.env` (copy `.env.example` and rename the copy to `.env`)
+    - `DISCORD_TOKEN`: This will be your bots Discord Token.
+    - `WORKERS`: The amount of workers the bot will have for OCR. Each worker takes about 100mb RAM. (Default: `5`)
+    - `APPLY_TO_MODERATORS`: Whether to apply AOCR detection to admins and members with manage server. (Default: `false`)
+    - `ONLY_DELETE`: This will only delete messages instead of applying all automod rules. (Default: `false`)
+    - `CHECK_EMOJIS`: Check emojis with OCR. This requires processing **EVERY** message with regex. (Default: `false`)
+    - `CHECK_REACTIONS`: Check reactions with OCR. (Default: `true`)
+    - `CHECK_STICKERS`: Check stickers with OCR. (Default: `true`)
 5. Install packages using a node package manager (I suggest [PNPM](https://pnpm.io/)): `pnpm i`
 6. Build: `pnpm build`
 7. Run: `pnpm start`

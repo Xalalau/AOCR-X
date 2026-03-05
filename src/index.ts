@@ -1,81 +1,89 @@
-import {Client, GatewayIntentBits, Events, type Message, Partials} from "discord.js";
-import untypedConfig from "../config/config.json" with {type: "json"};
-import type {Config} from "./types/Config.js";
-
-const config = untypedConfig as Config;
+import {
+	Client,
+	Events,
+	GatewayIntentBits,
+	type Message,
+	Partials,
+} from "discord.js";
 
 const client = new Client({
-    intents: [
-        GatewayIntentBits.Guilds,
-        GatewayIntentBits.AutoModerationConfiguration,
-        GatewayIntentBits.MessageContent,
-        GatewayIntentBits.GuildMessages,
-        GatewayIntentBits.GuildMessageReactions
-    ],
-    partials: [Partials.Reaction, Partials.Message] // We need these partials to get messages and reactions sent before the bot started
+	intents: [
+		GatewayIntentBits.Guilds,
+		GatewayIntentBits.AutoModerationConfiguration,
+		GatewayIntentBits.MessageContent,
+		GatewayIntentBits.GuildMessages,
+		GatewayIntentBits.GuildMessageReactions,
+	],
+	partials: [Partials.Reaction, Partials.Message], // We need these partials to get messages and reactions sent before the bot started
 });
 
 client.once(Events.ClientReady, () => {
-    console.log("Connected to Discord!");
+	console.log("Connected to Discord!");
 });
 
-import {handleMessage} from "./handlers/message.js";
+import { handleMessage } from "./handlers/message.js";
+
 client.on(Events.MessageCreate, (message) => {
-    if (
-        message.attachments.at(0) ??
-        message.embeds.at(0) ??
-        (message.stickers.at(0) && config.CheckStickers) ??
-        config.CheckEmojis
-    ) {
-        try {
-            void handleMessage(message);
-        } catch (error) {
-            console.error(error);
-        }
-    }
+	if (
+		message.attachments.at(0) ??
+		message.embeds.at(0) ??
+		(message.stickers.at(0) && process.env.CHECK_STICKERS === "true") ??
+		process.env.CHECK_EMOJIS === "true"
+	) {
+		try {
+			void handleMessage(message);
+		} catch (error) {
+			console.error(error);
+		}
+	}
 });
 
 client.on(Events.MessageUpdate, (message) => {
-    if (message.attachments.at(0) ?? message.embeds.at(0) ?? message.stickers.size != 0) {
-        try {
-            void handleMessage(message as Message);
-        } catch (error) {
-            console.error(error);
-        }
-    }
+	if (
+		message.attachments.at(0) ??
+		message.embeds.at(0) ??
+		message.stickers.size !== 0
+	) {
+		try {
+			void handleMessage(message as Message);
+		} catch (error) {
+			console.error(error);
+		}
+	}
 });
 
-if (config.CheckReactions) {
-    client.on(Events.MessageReactionAdd, (reaction) => {
-        void reaction.fetch().then(() => {
-            if (reaction.count != 1) {
-                return;
-            }
-            try {
-                void handleReaction(reaction);
-            } catch (error) {
-                console.error(error);
-            }
-        });
-    });
+if (process.env.CHECK_REACTIONS === "true") {
+	client.on(Events.MessageReactionAdd, (reaction) => {
+		void reaction.fetch().then(() => {
+			if (reaction.count !== 1) {
+				return;
+			}
+			try {
+				void handleReaction(reaction);
+			} catch (error) {
+				console.error(error);
+			}
+		});
+	});
 }
 
 client.on(Events.Error, (error) => {
-    console.error(error);
+	console.error(error);
 });
 client.on(Events.Warn, (warning) => {
-    console.warn(warning);
+	console.warn(warning);
 });
 
-import {ocr} from "./libs/tesseract.js";
-import {handleReaction} from "./handlers/reaction.js";
+import { handleReaction } from "./handlers/reaction.js";
+import { ocr } from "./libs/tesseract.js";
+
 client.on(Events.Invalidated, () => {
-    async () => {
-        console.log("Session Invalidated - Stopping Client");
-        await client.destroy();
-        await ocr.terminate();
-        process.exit(1);
-    };
+	async () => {
+		console.log("Session Invalidated - Stopping Client");
+		await client.destroy();
+		await ocr.terminate();
+		process.exit(1);
+	};
 });
 
-await client.login(config.DiscordToken);
+await client.login(process.env.DISCORD_TOKEN);

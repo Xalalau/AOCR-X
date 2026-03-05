@@ -4,7 +4,7 @@
 
 The bot will not apply automod rules to members with `Administrator` or `Manage Server`. This is the same behavior you will get from regular automod.
 
-If you are self hosting you can change this in the `config.json` file by setting `ApplyToModerators` to `true`
+If you are self hosting you can change this in the `.env` file by setting `APPLY_TO_MODERATORS` to `true`
 
 ## Why doesn't the bot catch everything?
 

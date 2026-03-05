@@ -1,28 +1,24 @@
-import {type Worker, createScheduler, createWorker} from "tesseract.js";
-
-import untypedConfig from "../../config/config.json" with {type: "json"};
-import type {Config} from "../types/Config.js";
-const config = untypedConfig as Config;
+import { createScheduler, createWorker, PSM, type Worker } from "tesseract.js";
 
 export const ocr = createScheduler();
 
 export async function newWorkerWithConfig(): Promise<Worker> {
-    //CUSTOM WORKER CONFIG HERE
-    return await createWorker(
-        undefined,
-        1,
-        {
-            langPath: "../../eng.traineddata",
-            errorHandler(arg) {
-                console.error(arg);
-            }
-        },
-        "--PSM=12"
-    );
+	//CUSTOM WORKER CONFIG HERE
+	const worker = await createWorker("eng", 1, {
+		langPath: ".",
+		gzip: true,
+		errorHandler(arg) {
+			console.error(arg);
+		},
+	});
+	await worker.setParameters({
+		tessedit_pageseg_mode: PSM.SPARSE_TEXT,
+	});
+	return worker;
 }
 
-for (let i = 0; i < config.Workers; ++i) {
-    ocr.addWorker(await newWorkerWithConfig());
+for (let i = 0; i < Number(process.env.WORKERS); ++i) {
+	ocr.addWorker(await newWorkerWithConfig());
 }
 
 console.log(`${ocr.getNumWorkers().toString()} Workers prepared`);
