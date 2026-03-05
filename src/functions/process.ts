@@ -32,7 +32,11 @@ export async function processer(
 			continue;
 		}
 
-		let cleanedText = ocrData.data.text.replaceAll("\n", "").toLowerCase(); // Tesseract inserts its own newline characters
+		let cleanedText = ocrData.data.text
+			.replaceAll("\n", "")
+			.toLowerCase()
+			// biome-ignore lint/suspicious/noControlCharactersInRegex: Cut out non ASCII, this is incredibly unreliable
+			.replace(/^\x00-\x7F/g, ""); // Tesseract inserts its own newline characters
 		rule.triggerMetadata.allowList.forEach((word) => {
 			cleanedText = cleanedText.replaceAll(word, "");
 		});
