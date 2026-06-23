@@ -17,16 +17,27 @@
 		"strictNullChecks": true,
 		"strictPropertyInitialization": true,
 		"useUnknownInCatchVariables": true,
+		"rootDir": "src",
 		"outDir": "dist",
 		"target": "ESNext",
 		"module": "ESNext",
 		"moduleResolution": "Bundler",
-		"types": ["node"],
+		"types": [
+			"node"
+		],
 		"esModuleInterop": true,
 		"removeComments": true,
 		"resolveJsonModule": true,
-		"lib": ["ESNext", "DOM"]
+		"lib": [
+			"ESNext",
+			"DOM"
+		]
 	},
-	"include": ["src", "config", "*.js"],
-	"exclude": ["node_modules", "dist"]
+	"include": [
+		"src"
+	],
+	"exclude": [
+		"node_modules",
+		"dist"
+	]
 }
