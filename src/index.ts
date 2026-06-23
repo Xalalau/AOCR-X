@@ -5,6 +5,16 @@ import {
 	type Message,
 	Partials,
 } from "discord.js";
+import { handleMessage } from "./handlers/message.js";
+import { handleReaction } from "./handlers/reaction.js";
+import { readBooleanConfig } from "./libs/config.js";
+import { debugLog } from "./libs/debug.js";
+import { hasEmbedImageUrl, isImageAttachment } from "./libs/imageUrls.js";
+import { shutdownOcr } from "./libs/ocr.js";
+
+const ocrCheckEmojis = readBooleanConfig("OCR_CHECK_EMOJIS", false);
+const ocrCheckReactions = readBooleanConfig("OCR_CHECK_REACTIONS", true);
+const ocrCheckStickers = readBooleanConfig("OCR_CHECK_STICKERS", true);
 
 const client = new Client({
 	intents: [
@@ -17,19 +27,38 @@ const client = new Client({
 	partials: [Partials.Reaction, Partials.Message], // We need these partials to get messages and reactions sent before the bot started
 });
 
+function messageHasCheckableContent(message: Message) {
+	return Boolean(
+		message.attachments.some((attachment) => isImageAttachment(attachment)) ||
+			message.embeds.some((embed) => hasEmbedImageUrl(embed)) ||
+			(ocrCheckStickers && message.stickers.at(0)) ||
+			(ocrCheckEmojis && message.content),
+	);
+}
+
 client.once(Events.ClientReady, () => {
 	console.log("Connected to Discord!");
+	debugLog("client ready", {
+		user: client.user?.tag ?? null,
+		guilds: client.guilds.cache.size,
+		processId: process.pid,
+	});
 });
 
-import { handleMessage } from "./handlers/message.js";
-
 client.on(Events.MessageCreate, (message) => {
-	if (
-		message.attachments.at(0) ??
-		message.embeds.at(0) ??
-		(message.stickers.at(0) && process.env.CHECK_STICKERS === "true") ??
-		process.env.CHECK_EMOJIS === "true"
-	) {
+	const shouldCheck = messageHasCheckableContent(message);
+	debugLog("message create event", {
+		author: message.author.tag,
+		guild: message.guild?.name ?? null,
+		channelId: message.channelId,
+		attachments: message.attachments.size,
+		embeds: message.embeds.length,
+		stickers: message.stickers.size,
+		contentLength: message.content.length,
+		shouldCheck,
+	});
+
+	if (shouldCheck) {
 		try {
 			void handleMessage(message);
 		} catch (error) {
@@ -38,24 +67,35 @@ client.on(Events.MessageCreate, (message) => {
 	}
 });
 
-client.on(Events.MessageUpdate, (message) => {
-	if (
-		message.attachments.at(0) ??
-		message.embeds.at(0) ??
-		message.stickers.size !== 0
-	) {
+client.on(Events.MessageUpdate, (_oldMessage, newMessage) => {
+	const message = newMessage as Message;
+	const shouldCheck = messageHasCheckableContent(message);
+	debugLog("message update event", {
+		guild: message.guild?.name ?? null,
+		channelId: message.channelId,
+		attachments: message.attachments.size,
+		embeds: message.embeds.length,
+		stickers: message.stickers.size,
+		shouldCheck,
+	});
+
+	if (shouldCheck) {
 		try {
-			void handleMessage(message as Message);
+			void handleMessage(message);
 		} catch (error) {
 			console.error(error);
 		}
 	}
 });
 
-if (process.env.CHECK_REACTIONS === "true") {
+if (ocrCheckReactions) {
 	client.on(Events.MessageReactionAdd, (reaction) => {
 		void reaction.fetch().then(() => {
 			if (reaction.count !== 1) {
+				debugLog("reaction skipped before handler", {
+					reason: "reaction_count_not_1",
+					count: reaction.count,
+				});
 				return;
 			}
 			try {
@@ -74,16 +114,11 @@ client.on(Events.Warn, (warning) => {
 	console.warn(warning);
 });
 
-import { handleReaction } from "./handlers/reaction.js";
-import { ocr } from "./libs/tesseract.js";
-
-client.on(Events.Invalidated, () => {
-	async () => {
-		console.log("Session Invalidated - Stopping Client");
-		await client.destroy();
-		await ocr.terminate();
-		process.exit(1);
-	};
+client.on(Events.Invalidated, async () => {
+	console.log("Session Invalidated - Stopping Client");
+	await client.destroy();
+	await shutdownOcr();
+	process.exit(1);
 });
 
 await client.login(process.env.DISCORD_TOKEN);
