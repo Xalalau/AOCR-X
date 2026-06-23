@@ -58,12 +58,10 @@ client.on(Events.MessageCreate, (message) => {
 		shouldCheck,
 	});
 
-	if (shouldCheck) {
-		try {
-			void handleMessage(message);
-		} catch (error) {
-			console.error(error);
-		}
+	try {
+		void handleMessage(message);
+	} catch (error) {
+		console.error(error);
 	}
 });
 
@@ -79,12 +77,10 @@ client.on(Events.MessageUpdate, (_oldMessage, newMessage) => {
 		shouldCheck,
 	});
 
-	if (shouldCheck) {
-		try {
-			void handleMessage(message);
-		} catch (error) {
-			console.error(error);
-		}
+	try {
+		void handleMessage(message);
+	} catch (error) {
+		console.error(error);
 	}
 });
 

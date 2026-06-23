@@ -1,6 +1,10 @@
 import { type Message, PermissionsBitField } from "discord.js";
 import { claimOcrImage } from "../functions/ocrMemory.js";
 import { processer } from "../functions/process.js";
+import {
+	detectDuplicateSpam,
+	wasDeletedDueToSpam,
+} from "../functions/spamMemory.js";
 import { readBooleanConfig, readPositiveIntegerConfig } from "../libs/config.js";
 import { debugLog, formatError } from "../libs/debug.js";
 import {
@@ -46,6 +50,16 @@ export async function handleMessage(message: Message) {
 			embeds: message.embeds.length,
 			stickers: message.stickers.size,
 			contentLength: message.content.length,
+		});
+		return;
+	}
+
+	if (await detectDuplicateSpam(message)) {
+		debugLog("message skipped", {
+			reason: "repeated_text_spam_detected",
+			author: message.author.tag,
+			guild: message.guild?.name ?? null,
+			messageId: message.id,
 		});
 		return;
 	}
@@ -118,7 +132,23 @@ export async function handleMessage(message: Message) {
 	});
 	await delay(ocrStartDelayMs);
 
+	if (wasDeletedDueToSpam(message)) {
+		debugLog("OCR skipped", {
+			reason: "message_deleted_due_to_spam",
+			messageId: message.id,
+		});
+		return;
+	}
+
 	for (const image of newImagesToCheck) {
+		if (wasDeletedDueToSpam(message)) {
+			debugLog("remaining OCR skipped", {
+				reason: "message_deleted_due_to_spam",
+				messageId: message.id,
+			});
+			return;
+		}
+
 		try {
 			debugLog("processing image", { image });
 			const matchedAutoModRule = await processer(message.member!, message, image);
