@@ -17,38 +17,115 @@
 - Added a classic repeated-text spam detector with delete, timeout, ban, DM, alert-channel, and cross-user matching controls.
 - Added quieter default alerts when `DEBUG_AOCR=false`, while keeping detailed embeds/logs available for debugging.
 
-## Invite
+## Self-Hosting
 
-<https://discord.com/api/oauth2/authorize?client_id=1168700227201548409&permissions=1099511639072&scope=bot>
+There is no public AOCR-X bot invite. Create and run your own Discord bot.
 
-> [!IMPORTANT]
-> The production bot does not apply automod rules to admins/users with manage server, similar to standard automod
+### 1. Create a Discord application
 
-## To Host Yourself
+1. Open the Discord Developer Portal and create a new application.
+2. Go to **Bot** and create a bot user.
+3. Enable **Message Content Intent**. Without this, OCR emoji checks and repeated-text spam checks cannot inspect message content.
+4. Copy the bot token and put it in `.env` as `DISCORD_TOKEN`.
 
-1. Create a discord bot with the following permissions ([Detailed guide from Discord.JS](https://discordjs.guide/preparations/setting-up-a-bot-application.html)):
-    - ***ENABLE THE MESSAGE CONTENT INTENT***
-    - Send Messages (To send messages to the automod channel)
-    - Manage Messages (To delete offending messages)
-    - Manage Server (To view AutoMod rules)
-    - Read Messages/View Channels (To view messages and images contained within)
-    - Moderate Members (To apply moderation actions to members)
-2. Add the bot to your server
-3. Clone this repository (`git clone https://github.com/Xalalau/AOCR-X`)
-4. Set configs in `.env` (copy `.env.example` and rename the copy to `.env`)
-    - `DISCORD_TOKEN`: This will be your bot's Discord token.
-    - `DEBUG_AOCR`: Enable detailed logs and full alert embeds.
-    - `APPLY_TO_MODERATORS`: Whether to apply AOCR-X detection to admins and members with Manage Server.
-    - `SEND_DETECTION_DM`: Whether to DM detected users.
-    - `OCR_ENGINE`: Select `tesseract` or the optional `paddle` sidecar service.
-    - `OCR_TESSERACT_WORKERS`: Worker count for Tesseract OCR.
-    - `OCR_CHECK_EMOJIS`, `OCR_CHECK_REACTIONS`, `OCR_CHECK_STICKERS`: Enable image checks for each Discord surface.
-    - `TEXT_SPAM_*`: Configure the classic repeated-text spam detector.
-    - `SPAM_RECURRENT_*`: Configure recurrent spam wave tracking shared by OCR and text spam.
-    - For PaddleOCR sidecar setup, see `paddle-ocr-service/README.md`.
-5. Install packages using a node package manager (I suggest [PNPM](https://pnpm.io/)): `pnpm i`
-6. Build: `pnpm build`
-7. Run: `pnpm start`
+### 2. Invite your bot to your server
+
+Use the OAuth2 URL Generator for your own application:
+
+- Scope: `bot`
+- Bot permissions:
+    - View Channels
+    - Send Messages
+    - Manage Messages
+    - Manage Server
+    - Moderate Members
+    - Read Message History
+
+Open the generated URL and add the bot to your server.
+
+### 3. Configure Discord AutoMod
+
+AOCR-X reads your server's AutoMod keyword and regex rules, runs OCR on images/media, and applies the matching AutoMod actions when recognized text matches those rules.
+
+Create or update AutoMod rules in Discord before starting the bot:
+
+- Use keyword filters and regex patterns for the text you want to detect in images.
+- Add a **Send Alert Message** action if you want AOCR-X OCR detections to post alert embeds to a channel.
+- Add **Block Message** if the bot should delete offending messages or remove offending reactions.
+- Add **Timeout User** if matching users should be timed out.
+
+Example regex patterns:
+
+```regex
+https://steamescommnunity\.com/s/\d+
+\b(?:gift|bonus|promo|activate|offer|reward|claim|clain)\b
+\b(?:nsfw|nudes|onlyfans?|porn|sexol|pussy|s3xcam|sexcam)\b
+\b(?:brhots|MrBeast|beast|casino|bloxshop|robux)\b
+```
+
+Members with **Manage Server** can be skipped by setting `APPLY_TO_MODERATORS=false`.
+
+### 4. Clone and configure AOCR-X
+
+```sh
+git clone https://github.com/Xalalau/AOCR-X
+cd AOCR-X
+cp .env.example .env
+```
+
+Edit `.env`:
+
+- `DISCORD_TOKEN`: Your bot token.
+- `DEBUG_AOCR`: `true` for verbose logs and full alert embeds; `false` for quieter alerts.
+- `APPLY_TO_MODERATORS`: Apply checks to members with Manage Server when `true`.
+- `SEND_DETECTION_DM`: DM detected users when `true`.
+- `OCR_ENGINE`: Use `tesseract` for the built-in engine or `paddle` for the sidecar service.
+- `OCR_CHECK_EMOJIS`, `OCR_CHECK_REACTIONS`, `OCR_CHECK_STICKERS`: Enable OCR checks for those Discord surfaces.
+- `OCR_START_DELAY_SECONDS`: Delay OCR so repeated-text spam cleanup can happen first.
+- `TEXT_SPAM_*`: Configure repeated-text spam detection, deletion, timeout/ban behavior, and alert routing.
+- `SPAM_RECURRENT_*`: Track repeated spam waves across OCR and repeated-text detections.
+
+If you do not want to run the PaddleOCR sidecar, set:
+
+```env
+OCR_ENGINE=tesseract
+```
+
+### 5. Optional: run the PaddleOCR sidecar
+
+PaddleOCR usually recognizes text better than Tesseract, but it runs as a separate local HTTP service.
+
+```sh
+docker build -t aocr-x-paddle ./paddle-ocr-service
+docker run -d --name aocr-x-paddle --restart unless-stopped -p 127.0.0.1:8000:8000 aocr-x-paddle
+wget -qO- http://127.0.0.1:8000/health; echo
+```
+
+Then keep these values in `.env`:
+
+```env
+OCR_ENGINE=paddle
+OCR_PADDLE_URL=http://127.0.0.1:8000/ocr
+OCR_PADDLE_FALLBACK_TO_TESSERACT=true
+OCR_PADDLE_SEND_IMAGE_BASE64=true
+OCR_PADDLE_FALLBACK_ON_EMPTY_TEXT=true
+```
+
+More PaddleOCR details are in `paddle-ocr-service/README.md`.
+
+### 6. Install, build, and run
+
+```sh
+pnpm install
+pnpm build
+pnpm start
+```
+
+For development:
+
+```sh
+pnpm dev
+```
 
 ### OCR powered by [Tesseract.js](https://tesseract.projectnaptha.com/) or [PaddleOCR](https://github.com/PaddlePaddle/PaddleOCR)
 
