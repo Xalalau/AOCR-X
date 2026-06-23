@@ -5,7 +5,7 @@
 
 > Enhance Discord's automod with image recognition - Works on emojis, reactions, stickers, and more!
 
-![Video Demo](https://github.com/SomeAspy/AOCR/assets/33640860/4d8be2f5-ce98-4b92-bfe6-88424ab23c99)
+<img width="635" height="748" alt="image" src="https://github.com/user-attachments/assets/df80d735-58e0-4243-88e1-672316d55b2f" />
 
 ## Changes in AOCR-X
 
