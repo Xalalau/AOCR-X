@@ -59,7 +59,7 @@ Example regex patterns:
 ```regex
 https://steamescommnunity\.com/s/\d+
 \b(?:gift|bonus|promo|activate|offer|reward|claim|clain)\b
-\b(?:nsfw|nudes|onlyfans?|porn|sexol|pussy|s3xcam|sexcam)\b
+\b(?:nsfw|nudes|onlyfans|porn|sexo|pussy|s3xcam|sexcam)\b
 \b(?:brhots|MrBeast|beast|casino|bloxshop|robux)\b
 ```
 
