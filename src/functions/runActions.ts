@@ -16,6 +16,11 @@ import {
 import { isDiscordUnknownMessageError } from "../libs/discordErrors.js";
 import type { OcrResult } from "../types/OcrResult.js";
 import type { MessageReactionExtended } from "../types/Extensions.js";
+import {
+	banRecurrentSpamMember,
+	formatRecurrentSpamSummary,
+	registerRecurrentSpamWave,
+} from "./recurrentSpam.js";
 
 const DEFAULT_BLOCK_MESSAGE = "AOCR-X: Rule Broken";
 const MAX_EMBED_FIELD_VALUE_LENGTH = 1024;
@@ -64,6 +69,13 @@ export async function runActions(
 	imageUrl: string,
 	match: OcrRuleMatch,
 ) {
+	const recurrentDecision = await registerRecurrentSpamWave({
+		guildId: member.guild.id,
+		authorId: member.id,
+		authorTag: member.user.tag,
+		source: "ocr",
+	});
+
 	debugLog("running AutoMod actions", {
 		member: member.user.tag,
 		memberId: member.id,
@@ -73,6 +85,7 @@ export async function runActions(
 			metadata: action.metadata,
 		})),
 		match,
+		recurrentDecision,
 		recognizedText: normalizeWhitespace(ocrData.text),
 		confidence: ocrData.confidence,
 	});
@@ -111,6 +124,14 @@ export async function runActions(
 				value: formatMatch(match),
 			});
 
+		const recurrentSummary = formatRecurrentSpamSummary(recurrentDecision);
+		if (recurrentSummary) {
+			embed.addFields({
+				name: "AOCR-X Recurrent Spam:",
+				value: recurrentSummary,
+			});
+		}
+
 		embed
 			.addFields({
 				name: "Result Confidence:",
@@ -125,7 +146,12 @@ export async function runActions(
 	}
 
 	if (timeoutRule) {
-		if (member.moderatable) {
+		if (recurrentDecision.shouldBan) {
+			debugLog("timeout skipped", {
+				reason: "recurrent_ban",
+				member: member.user.tag,
+			});
+		} else if (member.moderatable) {
 			try {
 				await member.timeout(
 					timeoutRule.metadata.durationSeconds! * 1000,
@@ -213,5 +239,9 @@ export async function runActions(
 				debugLog("block action failed", formatError(error));
 			}
 		}
+	}
+
+	if (recurrentDecision.shouldBan) {
+		await banRecurrentSpamMember(member, "AOCR-X: recurrent OCR spam");
 	}
 }
