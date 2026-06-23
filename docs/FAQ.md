@@ -14,8 +14,12 @@ This bot using [Tesseract.js](<https://github.com/naptha/tesseract.js>) with the
 
 ## Where can I change settings?
 
-There are no settings to change. The bot automatically pulls from your server's automod configuration and attempts to apply them to images.
+Most moderation behavior comes from your server's automod configuration. Self-hosted installs can also change runtime options in the `.env` file.
+
+Set `SEND_DETECTION_DM=true` to send a private DM to the detected member. When this is `false` or unset, AOCR-X will not DM the detected member. AutoMod alert messages are sent only to the alert channel configured in the matching AutoMod rule.
+
+For the classic repeated-text spam detector, set `TEXT_SPAM_ALERT_CHANNEL_ID` to one channel ID to send every server's alerts to the same place, or use `server_id:channel_id,server_id:channel_id` to route alerts per server. You can also include `default:channel_id` as a fallback for servers not listed in the mapping.
 
 ## OK, but I *really* want to disable certain aspects
 
-You can self host the bot via the directions on the [GitHub readme](https://github.com/SomeAspy/AOCR). If you go this route, I would appreciate a star!
+You can self host the bot via the directions on the [GitHub readme](https://github.com/Xalalau/AOCR-X). Run this fork at your own risk; durable improvements should go upstream.

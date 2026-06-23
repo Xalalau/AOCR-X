@@ -1,8 +1,21 @@
-# AOCR
+# AOCR-X
+
+> [!WARNING]
+> All improvements in this fork were vibe coded, and I barely know what the code is doing. Run it at your own risk. Durable improvements should be made in the upstream repository: <https://github.com/SomeAspy/AOCR>.
 
 > Enhance Discord's automod with image recognition - Works on emojis, reactions, stickers, and more!
 
 ![Video Demo](https://github.com/SomeAspy/AOCR/assets/33640860/4d8be2f5-ce98-4b92-bfe6-88424ab23c99)
+
+## Changes in AOCR-X
+
+- Added pluggable OCR engine support with the original Tesseract path, PaddleOCR HTTP requests, timeouts, and fallback controls.
+- Added a PaddleOCR sidecar service with Docker setup, health checks, CPU thread configuration, image normalization, and GIF/video first-frame handling.
+- Added a Tesseract non-SIMD postinstall patch for hosts where the default WASM core fails.
+- Added OCR deduplication and richer media collection for attachments, embeds, stickers, custom emojis, and reactions.
+- Added recurrent spam wave tracking shared by OCR detections and classic repeated-text spam.
+- Added a classic repeated-text spam detector with delete, timeout, ban, DM, alert-channel, and cross-user matching controls.
+- Added quieter default alerts when `DEBUG_AOCR=false`, while keeping detailed embeds/logs available for debugging.
 
 ## Invite
 
@@ -21,19 +34,22 @@
     - Read Messages/View Channels (To view messages and images contained within)
     - Moderate Members (To apply moderation actions to members)
 2. Add the bot to your server
-3. Clone this repository (`git clone https://github.com/SomeAspy/AOCR`)
+3. Clone this repository (`git clone https://github.com/Xalalau/AOCR-X`)
 4. Set configs in `.env` (copy `.env.example` and rename the copy to `.env`)
-    - `DISCORD_TOKEN`: This will be your bots Discord Token.
-    - `WORKERS`: The amount of workers the bot will have for OCR. Each worker takes about 100mb RAM. (Default: `5`)
-    - `APPLY_TO_MODERATORS`: Whether to apply AOCR detection to admins and members with manage server. (Default: `false`)
-    - `ONLY_DELETE`: This will only delete messages instead of applying all automod rules. (Default: `false`)
-    - `CHECK_EMOJIS`: Check emojis with OCR. This requires processing **EVERY** message with regex. (Default: `false`)
-    - `CHECK_REACTIONS`: Check reactions with OCR. (Default: `true`)
-    - `CHECK_STICKERS`: Check stickers with OCR. (Default: `true`)
+    - `DISCORD_TOKEN`: This will be your bot's Discord token.
+    - `DEBUG_AOCR`: Enable detailed logs and full alert embeds.
+    - `APPLY_TO_MODERATORS`: Whether to apply AOCR-X detection to admins and members with Manage Server.
+    - `SEND_DETECTION_DM`: Whether to DM detected users.
+    - `OCR_ENGINE`: Select `tesseract` or the optional `paddle` sidecar service.
+    - `OCR_TESSERACT_WORKERS`: Worker count for Tesseract OCR.
+    - `OCR_CHECK_EMOJIS`, `OCR_CHECK_REACTIONS`, `OCR_CHECK_STICKERS`: Enable image checks for each Discord surface.
+    - `TEXT_SPAM_*`: Configure the classic repeated-text spam detector.
+    - `SPAM_RECURRENT_*`: Configure recurrent spam wave tracking shared by OCR and text spam.
+    - For PaddleOCR sidecar setup, see `paddle-ocr-service/README.md`.
 5. Install packages using a node package manager (I suggest [PNPM](https://pnpm.io/)): `pnpm i`
 6. Build: `pnpm build`
 7. Run: `pnpm start`
 
-### Powered by [Tesseract.js](https://tesseract.projectnaptha.com/)
+### OCR powered by [Tesseract.js](https://tesseract.projectnaptha.com/) or [PaddleOCR](https://github.com/PaddlePaddle/PaddleOCR)
 
 #### Training data provided by <https://github.com/tesseract-ocr/tessdata_best/blob/main/eng.traineddata>
