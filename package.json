@@ -1,11 +1,13 @@
 {
+	"name": "aocr-x",
 	"type": "module",
 	"scripts": {
 		"lint": "biome check",
 		"lint:fix": "biome check --write",
-		"dev": "node --experimental-transform-types --env-file=.env src/index.ts",
-		"start": "node --experimental-transform-types --env-file=.env dist/index.js",
-		"build": "tsc"
+		"dev": "node --max-old-space-size=1024 --experimental-transform-types --env-file=.env src/index.ts",
+		"start": "node --max-old-space-size=1024 --experimental-transform-types --env-file=.env dist/index.js",
+		"build": "tsc",
+		"postinstall": "node scripts/patch-tesseract-nosimd.cjs"
 	},
 	"dependencies": {
 		"discord.js": "^14.26.3",
