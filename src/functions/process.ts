@@ -8,12 +8,63 @@ import { debugLog, formatError, normalizeWhitespace } from "../libs/debug.js";
 import type { MessageReactionExtended } from "../types/Extensions.js";
 import { runActions, type OcrRuleMatch } from "./runActions.js";
 
+const TEXT_MATCH_CHUNK_LENGTH = 1024;
+
+type TextChunk = {
+	number: number;
+	total: number;
+	text: string;
+};
+
 function uniqueValues(values: string[]) {
 	return Array.from(new Set(values));
 }
 
-function getRegexMatches(pattern: string, text: string) {
-	const regex = new RegExp(pattern, "gi");
+function getTextChunks(text: string) {
+	const chunks: string[] = [];
+	let start = 0;
+
+	while (start < text.length) {
+		let end = Math.min(start + TEXT_MATCH_CHUNK_LENGTH, text.length);
+		if (end < text.length) {
+			const lastSpaceIndex = text.lastIndexOf(" ", end);
+			if (lastSpaceIndex > start) {
+				end = lastSpaceIndex;
+			}
+		}
+
+		const chunk = text.slice(start, end).trim();
+		if (chunk.length > 0) {
+			chunks.push(chunk);
+		}
+
+		start = end;
+		while (text[start] === " ") {
+			start += 1;
+		}
+	}
+
+	return chunks.map<TextChunk>((chunk, index) => ({
+		number: index + 1,
+		total: chunks.length,
+		text: chunk,
+	}));
+}
+
+function addTextChunkToMatch(match: OcrRuleMatch, chunk: TextChunk) {
+	if (chunk.total <= 1) {
+		return;
+	}
+
+	match.textChunk = {
+		number: chunk.number,
+		total: chunk.total,
+		text: chunk.text,
+	};
+}
+
+function getRegexMatches(regex: RegExp, text: string) {
+	regex.lastIndex = 0;
 	return uniqueValues(
 		Array.from(text.matchAll(regex), (match) => match[0]).filter(Boolean),
 	);
@@ -107,10 +158,12 @@ export async function processer(
 				cleanedText.replaceAll(word.toLowerCase(), " "),
 			);
 		});
+		const cleanedTextChunks = getTextChunks(cleanedText);
 
 		debugLog("checking rule", {
 			rule: rule.name,
 			cleanedText,
+			textChunks: cleanedTextChunks.length,
 			keywords: rule.triggerMetadata.keywordFilter,
 			regex: rule.triggerMetadata.regexPatterns,
 		});
@@ -120,27 +173,45 @@ export async function processer(
 			if (!keyword) {
 				continue;
 			}
-			if (cleanedText.includes(keyword)) {
-				const match: OcrRuleMatch = {
-					ruleName: rule.name,
-					type: "keyword",
-					pattern: rawKeyword,
-					matches: [keyword],
-				};
-				debugLog("keyword matched", {
-					rule: rule.name,
-					keyword,
-					match,
-					cleanedText,
-				});
-				await runActions(member, rule.actions, event, ocrData, imageUrl, match);
-				return true;
+			for (const chunk of cleanedTextChunks) {
+				if (chunk.text.includes(keyword)) {
+					const match: OcrRuleMatch = {
+						ruleName: rule.name,
+						type: "keyword",
+						pattern: rawKeyword,
+						matches: [keyword],
+					};
+					addTextChunkToMatch(match, chunk);
+					debugLog("keyword matched", {
+						rule: rule.name,
+						keyword,
+						match,
+						textChunk: {
+							number: chunk.number,
+							total: chunk.total,
+						},
+					});
+					await runActions(member, rule.actions, event, ocrData, imageUrl, match);
+					return true;
+				}
 			}
 		}
 
 		for (const pattern of rule.triggerMetadata.regexPatterns) {
+			let regex: RegExp;
 			try {
-				const matches = getRegexMatches(pattern, cleanedText);
+				regex = new RegExp(pattern, "gi");
+			} catch (error) {
+				debugLog("regex failed", {
+					rule: rule.name,
+					pattern,
+					error: formatError(error),
+				});
+				continue;
+			}
+
+			for (const chunk of cleanedTextChunks) {
+				const matches = getRegexMatches(regex, chunk.text);
 				if (matches.length > 0) {
 					const match: OcrRuleMatch = {
 						ruleName: rule.name,
@@ -148,21 +219,20 @@ export async function processer(
 						pattern,
 						matches,
 					};
+					addTextChunkToMatch(match, chunk);
 					debugLog("regex matched", {
 						rule: rule.name,
 						pattern,
 						matches,
-						cleanedText,
+						match,
+						textChunk: {
+							number: chunk.number,
+							total: chunk.total,
+						},
 					});
 					await runActions(member, rule.actions, event, ocrData, imageUrl, match);
 					return true;
 				}
-			} catch (error) {
-				debugLog("regex failed", {
-					rule: rule.name,
-					pattern,
-					error: formatError(error),
-				});
 			}
 		}
 	}

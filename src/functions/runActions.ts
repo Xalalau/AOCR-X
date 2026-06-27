@@ -31,14 +31,34 @@ export type OcrRuleMatch = {
 	type: "keyword" | "regex";
 	pattern: string;
 	matches: string[];
+	textChunk?: {
+		number: number;
+		total: number;
+		text: string;
+	};
 };
 
 function truncateEmbedField(value: string) {
-	if (value.length <= MAX_EMBED_FIELD_VALUE_LENGTH) {
-		return value;
+	const safeValue = value.trim().length > 0 ? value : "(empty)";
+	if (safeValue.length <= MAX_EMBED_FIELD_VALUE_LENGTH) {
+		return safeValue;
 	}
 
-	return `${value.slice(0, MAX_EMBED_FIELD_VALUE_LENGTH - 3)}...`;
+	return `${safeValue.slice(0, MAX_EMBED_FIELD_VALUE_LENGTH - 3)}...`;
+}
+
+function formatRecognizedText(text: string) {
+	return truncateEmbedField(normalizeWhitespace(text));
+}
+
+function formatTextChunk(match: OcrRuleMatch) {
+	if (!match.textChunk || match.textChunk.total <= 1) {
+		return [];
+	}
+
+	return [
+		`Text chunk: ${match.textChunk.number.toString()}/${match.textChunk.total.toString()}`,
+	];
 }
 
 function formatMatch(match: OcrRuleMatch) {
@@ -47,6 +67,7 @@ function formatMatch(match: OcrRuleMatch) {
 			`Rule: ${match.ruleName}`,
 			`Type: ${match.type}`,
 			`Pattern: ${match.pattern}`,
+			...formatTextChunk(match),
 			`Detected: ${match.matches.length > 0 ? match.matches.join(", ") : "(match found)"}`,
 		].join("\n"),
 	);
@@ -56,6 +77,7 @@ function formatMinimalMatch(match: OcrRuleMatch) {
 	return truncateEmbedField(
 		[
 			`Rule: ${match.ruleName}`,
+			...formatTextChunk(match),
 			`Detected: ${match.matches.length > 0 ? match.matches.join(", ") : "(match found)"}`,
 		].join("\n"),
 	);
@@ -117,7 +139,7 @@ export async function runActions(
 			})
 			.addFields({
 				name: "AOCR-X Recognized:",
-				value: ocrData.text.replaceAll("\n", ""),
+				value: formatRecognizedText(match.textChunk?.text ?? ocrData.text),
 			})
 			.addFields({
 				name: "AOCR-X Detected:",
