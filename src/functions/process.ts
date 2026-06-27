@@ -52,10 +52,6 @@ function getTextChunks(text: string) {
 }
 
 function addTextChunkToMatch(match: OcrRuleMatch, chunk: TextChunk) {
-	if (chunk.total <= 1) {
-		return;
-	}
-
 	match.textChunk = {
 		number: chunk.number,
 		total: chunk.total,
