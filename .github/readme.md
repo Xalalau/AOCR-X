@@ -5,7 +5,8 @@
 
 > Enhance Discord's automod with image recognition - Works on emojis, reactions, stickers, and more!
 
-![Video Demo](https://github.com/SomeAspy/AOCR/assets/33640860/4d8be2f5-ce98-4b92-bfe6-88424ab23c99)
+<img width="250" alt="image" src="https://github.com/user-attachments/assets/74df1157-67d0-4cbf-948a-5d7611583da1" /><img width="250" alt="image" src="https://github.com/user-attachments/assets/df80d735-58e0-4243-88e1-672316d55b2f" /><img width="250" alt="image" src="https://github.com/user-attachments/assets/5f85c960-ef01-48e9-83ad-d748cd1cc9bd" />
+
 
 ## Changes in AOCR-X
 
@@ -59,7 +60,7 @@ Example regex patterns:
 ```regex
 https://steamescommnunity\.com/s/\d+
 \b(?:gift|bonus|promo|activate|offer|reward|claim|clain)\b
-\b(?:nsfw|nudes|onlyfans?|porn|sexol|pussy|s3xcam|sexcam)\b
+\b(?:nsfw|nudes|onlyfans|porn|sexo|pussy|s3xcam|sexcam)\b
 \b(?:brhots|MrBeast|beast|casino|bloxshop|robux)\b
 ```
 
