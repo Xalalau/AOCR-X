@@ -18,6 +18,12 @@ and expects:
 { "text": "...", "confidence": 93.5 }
 ```
 
+The service also exposes `POST /frame` for the bot's Tesseract fallback. It accepts the same payload and returns the normalized first frame/image as PNG:
+
+```json
+{ "contentType": "image/png", "imageBase64": "..." }
+```
+
 ## Docker
 
 ```sh
@@ -30,7 +36,7 @@ Check that it is listening:
 
 ```sh
 wget -qO- http://127.0.0.1:8000/health; echo
-# Confirm the response includes version=2026-06-22-official-predict-cpu-auto-image-normalize.
+# Confirm the response includes version=2026-06-27-official-predict-cpu-auto-image-video-frame-endpoint.
 # During first model download/load, health returns ready=false. Wait for ready=true.
 docker logs --tail=200 aocr-x-paddle
 ```

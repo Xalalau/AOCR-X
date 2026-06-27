@@ -64,7 +64,7 @@ USE_TEXTLINE_ORIENTATION = os.getenv(
     "false",
 ).lower() in {"1", "true", "yes", "y"}
 DOWNLOAD_TIMEOUT_SECONDS = int(os.getenv("PADDLE_OCR_DOWNLOAD_TIMEOUT_SECONDS", "20"))
-SERVICE_VERSION = "2026-06-22-official-predict-cpu-auto-image-video-frame"
+SERVICE_VERSION = "2026-06-27-official-predict-cpu-auto-image-video-frame-endpoint"
 
 OCR = None
 OCR_LOADING = False
@@ -387,6 +387,23 @@ def write_image_file(payload):
         return image_file.name
 
 
+def build_frame_response(payload):
+    image_path = write_image_file(payload)
+    try:
+        with open(image_path, "rb") as image_file:
+            image_base64 = base64.b64encode(image_file.read()).decode("ascii")
+
+        return {
+            "contentType": "image/png",
+            "imageBase64": image_base64,
+        }
+    finally:
+        try:
+            os.unlink(image_path)
+        except FileNotFoundError:
+            pass
+
+
 def build_response(payload):
     image_path = write_image_file(payload)
     try:
@@ -441,13 +458,17 @@ class Handler(BaseHTTPRequestHandler):
         self.send_json(404, {"error": "not found"})
 
     def do_POST(self):
-        if self.path != "/ocr":
+        if self.path not in {"/ocr", "/frame"}:
             self.send_json(404, {"error": "not found"})
             return
 
         try:
             length = int(self.headers.get("content-length", "0"))
             payload = json.loads(self.rfile.read(length).decode("utf-8"))
+            if self.path == "/frame":
+                self.send_json(200, build_frame_response(payload))
+                return
+
             self.send_json(200, build_response(payload))
         except Exception as error:
             traceback.print_exc()

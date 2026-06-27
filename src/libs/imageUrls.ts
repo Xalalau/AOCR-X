@@ -64,6 +64,19 @@ export function addLikelyImageUrl(urls: UrlCollection, rawUrl?: string | null) {
 	return true;
 }
 
+function addFirstLikelyImageUrl(
+	urls: UrlCollection,
+	...rawUrls: Array<string | null | undefined>
+) {
+	for (const rawUrl of rawUrls) {
+		if (addLikelyImageUrl(urls, rawUrl)) {
+			return true;
+		}
+	}
+
+	return false;
+}
+
 export function isImageAttachment(attachment: AttachmentCandidate) {
 	if (isOcrMediaContentType(attachment.contentType)) {
 		return true;
@@ -88,9 +101,12 @@ export function addEmbedImageUrls(urls: UrlCollection, embed: EmbedCandidate) {
 	const before = urls.size;
 	addLikelyImageUrl(urls, embed.image?.url);
 	addLikelyImageUrl(urls, embed.thumbnail?.url);
-	addLikelyImageUrl(urls, embed.video?.proxyURL);
-	addLikelyImageUrl(urls, embed.video?.proxy_url);
-	addLikelyImageUrl(urls, embed.video?.url);
+	addFirstLikelyImageUrl(
+		urls,
+		embed.video?.proxyURL,
+		embed.video?.proxy_url,
+		embed.video?.url,
+	);
 	return urls.size > before;
 }
 

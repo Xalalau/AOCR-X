@@ -4,5 +4,6 @@ export type OcrResult = {
 	engine: OcrEngineName;
 	text: string;
 	confidence: number;
+	contentType?: string;
 	raw?: unknown;
 };

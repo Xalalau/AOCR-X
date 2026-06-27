@@ -118,11 +118,8 @@ export async function processer(
 		const rule = automodRules.at(ruleNumber)!;
 		const skipReasons: string[] = [];
 
-		if (rule.triggerType === AutoModerationRuleTriggerType.MentionSpam) {
-			skipReasons.push("mention_spam_rule");
-		}
-		if (rule.triggerType === AutoModerationRuleTriggerType.Spam) {
-			skipReasons.push("spam_rule");
+		if (rule.triggerType !== AutoModerationRuleTriggerType.Keyword) {
+			skipReasons.push(`unsupported_trigger_type_${rule.triggerType.toString()}`);
 		}
 		if (!rule.enabled) {
 			skipReasons.push("rule_disabled");

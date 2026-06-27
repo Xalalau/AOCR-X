@@ -1,3 +1,7 @@
+import { randomUUID } from "node:crypto";
+import { unlink, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import type { OcrEngineName, OcrResult } from "../types/OcrResult.js";
 import {
 	readBooleanConfig,
@@ -8,6 +12,7 @@ import { debugLog, formatError, normalizeWhitespace } from "./debug.js";
 const DEFAULT_PADDLE_URL = "http://127.0.0.1:8000/ocr";
 const DEFAULT_PADDLE_TIMEOUT_SECONDS = 120;
 const MAX_ERROR_BODY_LENGTH = 1000;
+const VIDEO_MEDIA_PATH_PATTERN = /\.(?:m4v|mov|mp4|webm)$/i;
 
 class UnsupportedOcrInputError extends Error {
 	constructor(message: string) {
@@ -25,6 +30,16 @@ type PaddlePayload = {
 	imageUrl?: string;
 	imageBase64?: string;
 	contentType?: string;
+};
+
+type FramePayload = {
+	imageBase64: string;
+	contentType: string;
+};
+
+type TesseractInput = {
+	image: string;
+	temporaryPath?: string;
 };
 
 let tesseractModule:
@@ -50,6 +65,17 @@ function getPaddleUrl() {
 	return process.env.OCR_PADDLE_URL?.trim() || DEFAULT_PADDLE_URL;
 }
 
+function getPaddleFrameUrl() {
+	const url = new URL(getPaddleUrl());
+	if (url.pathname.endsWith("/ocr")) {
+		url.pathname = `${url.pathname.slice(0, -"/ocr".length)}/frame`;
+	} else {
+		url.pathname = `${url.pathname.replace(/\/$/, "")}/frame`;
+	}
+
+	return url.toString();
+}
+
 function getPaddleTimeoutMs() {
 	return (
 		readPositiveIntegerConfig(
@@ -57,6 +83,10 @@ function getPaddleTimeoutMs() {
 			DEFAULT_PADDLE_TIMEOUT_SECONDS,
 		) * 1000
 	);
+}
+
+function isTesseractFallbackEnabled() {
+	return readBooleanConfig("OCR_PADDLE_FALLBACK_TO_TESSERACT", true);
 }
 
 function isAbortError(error: unknown) {
@@ -70,6 +100,18 @@ function isAbortError(error: unknown) {
 
 function isUnsupportedOcrInputError(error: unknown) {
 	return error instanceof UnsupportedOcrInputError;
+}
+
+function isVideoOcrInput(imageUrl: string, contentType?: string) {
+	if (contentType?.startsWith("video/")) {
+		return true;
+	}
+
+	try {
+		return VIDEO_MEDIA_PATH_PATTERN.test(new URL(imageUrl).pathname);
+	} catch {
+		return VIDEO_MEDIA_PATH_PATTERN.test(imageUrl);
+	}
 }
 
 function truncateErrorBody(value: string) {
@@ -118,6 +160,16 @@ function readConfidenceValue(value: Record<string, unknown>) {
 		value.rec_score ??
 		value.probability ??
 		value.accuracy
+	);
+}
+
+function isFramePayload(value: unknown): value is FramePayload {
+	return (
+		isObject(value) &&
+		typeof value.imageBase64 === "string" &&
+		value.imageBase64.length > 0 &&
+		typeof value.contentType === "string" &&
+		value.contentType.length > 0
 	);
 }
 
@@ -262,7 +314,15 @@ async function recognizeWithPaddle(imageUrl: string): Promise<OcrResult> {
 		}
 
 		const responseBody: unknown = await response.json();
-		return buildOcrResultFromPaddleResponse(responseBody);
+		const result = buildOcrResultFromPaddleResponse(responseBody);
+		if (!payload.contentType) {
+			return result;
+		}
+
+		return {
+			...result,
+			contentType: payload.contentType,
+		};
 	} catch (error) {
 		if (controller.signal.aborted || isAbortError(error)) {
 			throw new Error(
@@ -286,6 +346,90 @@ async function recognizeWithTesseract(imageUrl: string) {
 	return await tesseract.recognizeWithTesseract(imageUrl);
 }
 
+async function getTesseractInput(
+	imageUrl: string,
+	contentType?: string,
+): Promise<TesseractInput> {
+	if (!isVideoOcrInput(imageUrl, contentType)) {
+		return { image: imageUrl };
+	}
+
+	const controller = new AbortController();
+	const timeoutMs = getPaddleTimeoutMs();
+	const timeout = setTimeout(() => controller.abort(), timeoutMs);
+
+	try {
+		const payload = await buildPaddlePayload(imageUrl, controller.signal);
+		debugLog("tesseract frame extraction request", {
+			url: getPaddleFrameUrl(),
+			contentType: payload.contentType ?? contentType ?? null,
+			mode: payload.imageBase64 ? "image_base64" : "image_url",
+		});
+
+		const response = await fetch(getPaddleFrameUrl(), {
+			method: "POST",
+			headers: {
+				"content-type": "application/json",
+			},
+			body: JSON.stringify(payload),
+			signal: controller.signal,
+		});
+
+		if (!response.ok) {
+			throw new Error(
+				`PaddleOCR frame service returned HTTP ${response.status}: ${await readResponseBody(response)}`,
+			);
+		}
+
+		const responseBody: unknown = await response.json();
+		if (!isFramePayload(responseBody)) {
+			throw new Error("PaddleOCR frame service returned an invalid frame payload");
+		}
+
+		const temporaryPath = join(
+			tmpdir(),
+			`aocr-tesseract-${process.pid.toString()}-${randomUUID()}.png`,
+		);
+		await writeFile(
+			temporaryPath,
+			Buffer.from(responseBody.imageBase64, "base64"),
+		);
+
+		return { image: temporaryPath, temporaryPath };
+	} catch (error) {
+		if (controller.signal.aborted || isAbortError(error)) {
+			throw new Error(
+				`PaddleOCR frame request timed out after ${Math.floor(timeoutMs / 1000).toString()}s`,
+			);
+		}
+
+		throw error;
+	} finally {
+		clearTimeout(timeout);
+	}
+}
+
+async function recognizeMediaWithTesseract(
+	imageUrl: string,
+	contentType?: string,
+) {
+	const tesseractInput = await getTesseractInput(imageUrl, contentType);
+	try {
+		return await recognizeWithTesseract(tesseractInput.image);
+	} finally {
+		if (tesseractInput.temporaryPath) {
+			try {
+				await unlink(tesseractInput.temporaryPath);
+			} catch (error) {
+				debugLog("tesseract temporary frame cleanup failed", {
+					path: tesseractInput.temporaryPath,
+					error: formatError(error),
+				});
+			}
+		}
+	}
+}
+
 export async function recognizeImage(imageUrl: string): Promise<OcrResult> {
 	const engine = getConfiguredEngine();
 
@@ -301,7 +445,16 @@ export async function recognizeImage(imageUrl: string): Promise<OcrResult> {
 				result.text.trim().length === 0 &&
 				readBooleanConfig("OCR_PADDLE_FALLBACK_ON_EMPTY_TEXT", true)
 			) {
-				throw new Error(`PaddleOCR returned empty text: ${summarizeRawOcrResult(result.raw)}`);
+				if (!isTesseractFallbackEnabled()) {
+					throw new Error(
+						`PaddleOCR returned empty text: ${summarizeRawOcrResult(result.raw)}`,
+					);
+				}
+
+				debugLog("paddle OCR empty; falling back to tesseract", {
+					contentType: result.contentType ?? null,
+				});
+				return await recognizeMediaWithTesseract(imageUrl, result.contentType);
 			}
 
 			return result;
@@ -310,18 +463,18 @@ export async function recognizeImage(imageUrl: string): Promise<OcrResult> {
 				throw error;
 			}
 
-			if (!readBooleanConfig("OCR_PADDLE_FALLBACK_TO_TESSERACT", true)) {
+			if (!isTesseractFallbackEnabled()) {
 				throw error;
 			}
 
 			debugLog("paddle OCR failed; falling back to tesseract", {
 				error: formatError(error),
 			});
-			return await recognizeWithTesseract(imageUrl);
+			return await recognizeMediaWithTesseract(imageUrl);
 		}
 	}
 
-	return await recognizeWithTesseract(imageUrl);
+	return await recognizeMediaWithTesseract(imageUrl);
 }
 
 export async function shutdownOcr() {
